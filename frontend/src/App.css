@@ -1,42 +1,387 @@
-#root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  min-height: 100vh;
+  color: white;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header */
+.app-header {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 1rem 2rem;
   text-align: center;
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+.app-header h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.start-button {
+  background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Main content */
+.app-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+}
+
+/* Welcome screen */
+.welcome-screen {
+  text-align: center;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 3rem;
+  border-radius: 20px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.welcome-screen h2 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+  color: #ffd700;
+}
+
+.welcome-screen p {
+  font-size: 1.1rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+/* Game table */
+.game-table {
+  width: 100%;
+  max-width: 1200px;
+  height: 80vh;
+  background: linear-gradient(135deg, #2d5016 0%, #4a7c59 100%);
+  border-radius: 20px;
+  position: relative;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  border: 8px solid #8b4513;
+  overflow: hidden;
+}
+
+.game-table::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="75" cy="75" r="1" fill="rgba(255,255,255,0.1)"/><circle cx="50" cy="10" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="10" cy="60" r="0.5" fill="rgba(255,255,255,0.1)"/><circle cx="90" cy="40" r="0.5" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+  opacity: 0.3;
+}
+
+/* Table center */
+.table-center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.game-info {
+  margin-top: 1rem;
+}
+
+.game-info h2 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #ffd700;
+}
+
+.game-info p {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+/* Played cards */
+.played-cards {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1rem;
+  min-height: 80px;
+}
+
+/* Players container */
+.players-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.player-position {
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-position.top {
+  top: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.player-position.left {
+  left: 2rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+.player-position.right {
+  right: 2rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.player-position.bottom {
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Player component */
+.player {
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.player.current {
+  transform: scale(1.05);
+}
+
+.player.current .player-info {
+  background: rgba(255, 215, 0, 0.3);
+  border: 2px solid #ffd700;
+}
+
+.player.teammate .player-info {
+  background: rgba(0, 255, 0, 0.2);
+  border: 2px solid #00ff00;
+}
+
+.player-info {
+  background: rgba(0, 0, 0, 0.5);
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  margin-bottom: 0.5rem;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.player-info h3 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.player-status {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.player-cards {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Card component */
 .card {
-  padding: 2em;
+  width: 50px;
+  height: 70px;
+  background: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 2px solid #ddd;
 }
 
-.read-the-docs {
-  color: #888;
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+.card.playable {
+  border-color: #ffd700;
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.card.playable:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 8px 20px rgba(255, 215, 0, 0.6);
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 4px;
+  position: relative;
+}
+
+.card-value {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.card-value.red {
+  color: #d63031;
+}
+
+.card-suit {
+  font-size: 1.5rem;
+  text-align: center;
+  color: #333;
+}
+
+.card-suit.red {
+  color: #d63031;
+}
+
+/* Card back */
+.card-back {
+  background: linear-gradient(45deg, #2c3e50, #34495e);
+  border: 2px solid #95a5a6;
+}
+
+.card-back-pattern {
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 5px,
+    rgba(255, 255, 255, 0.1) 5px,
+    rgba(255, 255, 255, 0.1) 10px
+  );
+  border-radius: 6px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .app-header h1 {
+    font-size: 2rem;
+  }
+  
+  .game-table {
+    height: 70vh;
+    margin: 1rem;
+  }
+  
+  .card {
+    width: 40px;
+    height: 56px;
+  }
+  
+  .card-value {
+    font-size: 1rem;
+  }
+  
+  .card-suit {
+    font-size: 1.2rem;
+  }
+  
+  .player-position.top {
+    top: 1rem;
+  }
+  
+  .player-position.bottom {
+    bottom: 1rem;
+  }
+  
+  .player-position.left {
+    left: 1rem;
+  }
+  
+  .player-position.right {
+    right: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .app-header {
+    padding: 1rem;
+  }
+  
+  .app-header h1 {
+    font-size: 1.5rem;
+  }
+  
+  .start-button {
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
+  }
+  
+  .game-table {
+    height: 60vh;
+  }
+  
+  .card {
+    width: 35px;
+    height: 49px;
+  }
+  
+  .card-value {
+    font-size: 0.9rem;
+  }
+  
+  .card-suit {
+    font-size: 1rem;
+  }
+  
+  .player-info {
+    padding: 0.3rem 0.8rem;
+  }
+  
+  .player-info h3 {
+    font-size: 0.9rem;
+  }
+  
+  .player-status {
+    font-size: 0.7rem;
+  }
 }
