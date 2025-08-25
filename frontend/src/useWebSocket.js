@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 
-export const useWebSocket = (roomId, playerIndex) => {
+export const useWebSocket = (roomId, playerIndex, gameMode) => {
   const [socket, setSocket] = useState(null);
   const [isConnected, setIsConnected] = useState(false);
   const [gameState, setGameState] = useState(null);
@@ -11,7 +11,7 @@ export const useWebSocket = (roomId, playerIndex) => {
   const maxReconnectAttempts = 5;
 
   useEffect(() => {
-    if (!roomId || playerIndex === null || playerIndex === undefined) return;
+    if (!roomId || playerIndex === null || playerIndex === undefined || !gameMode) return;
 
     const connect = () => {
       try {
@@ -27,7 +27,8 @@ export const useWebSocket = (roomId, playerIndex) => {
           ws.send(JSON.stringify({
             type: 'joinRoom',
             roomId,
-            playerIndex
+            playerIndex,
+            gameMode
           }));
         };
 
@@ -96,7 +97,7 @@ export const useWebSocket = (roomId, playerIndex) => {
         socket.close();
       }
     };
-  }, [roomId, playerIndex]);
+  }, [roomId, playerIndex, gameMode]);
 
   const sendAction = (action) => {
     if (socket && socket.readyState === WebSocket.OPEN) {
