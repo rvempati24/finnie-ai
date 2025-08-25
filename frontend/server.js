@@ -7,17 +7,24 @@ const rooms = new Map();
 const playerConnections = new Map(); // playerId -> { ws, roomId, playerIndex }
 
 class GameRoom {
-  constructor(roomId) {
+  constructor(roomId, gameMode = '4-player') {
     this.roomId = roomId;
+    this.gameMode = gameMode;
     this.players = new Map(); // playerIndex -> { ws, name, connected }
+    
+    const isTeamGame = gameMode === '4-player';
+    const playerCount = gameMode === '2-player' ? 2 : 4;
+    
+    // Initialize players array based on game mode
+    const players = [];
+    for (let i = 0; i < playerCount; i++) {
+      players.push({ name: `Player ${i + 1}`, cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] });
+    }
+    
     this.gameState = {
       phase: 'waiting', // waiting, setup, dealing, bidding, trump_selection, mulligan, playing, round_end, game_end
-      players: [
-        { name: 'Player 1', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 2', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 3', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 4', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] }
-      ],
+      gameMode: gameMode,
+      players: players,
       currentPlayerIndex: 0,
       dealerIndex: 0,
       biddingPlayerIndex: 1,
@@ -27,19 +34,24 @@ class GameRoom {
       rankingOrder: 'high',
       currentTrick: [],
       trickWinner: null,
-      tricksWon: { team1: 0, team2: 0 },
-      scores: { team1: 0, team2: 0 },
+      tricksWon: isTeamGame ? { team1: 0, team2: 0 } : { player1: 0, player2: 0 },
+      scores: isTeamGame ? { team1: 0, team2: 0 } : { player1: 0, player2: 0 },
       currentRound: 1,
       deck: [],
       gameStarted: false,
       message: ''
     };
-    this.maxPlayers = 4;
+    this.maxPlayers = playerCount;
   }
 
   addPlayer(ws, playerIndex) {
     if (this.players.size >= this.maxPlayers) {
       return false; // Room is full
+    }
+
+    // Validate player index for the current game mode
+    if (playerIndex < 0 || playerIndex >= this.maxPlayers) {
+      return false; // Invalid player index for this game mode
     }
 
     this.players.set(playerIndex, {
@@ -157,16 +169,19 @@ class GameRoom {
     const deck = this.generateDeck();
     const shuffledDeck = this.shuffleDeck(deck);
     
-    for (let i = 0; i < 4; i++) {
-      this.gameState.players[i].cards = shuffledDeck.slice(i * 7, (i + 1) * 7);
+    const cardsPerPlayer = this.gameMode === '2-player' ? 9 : 7;
+    const playerCount = this.maxPlayers;
+    
+    for (let i = 0; i < playerCount; i++) {
+      this.gameState.players[i].cards = shuffledDeck.slice(i * cardsPerPlayer, (i + 1) * cardsPerPlayer);
       this.gameState.players[i].bid = null;
       this.gameState.players[i].selectedCards = [];
     }
     
-    this.gameState.deck = shuffledDeck.slice(28);
+    this.gameState.deck = shuffledDeck.slice(playerCount * cardsPerPlayer);
     this.gameState.phase = 'bidding';
-    this.gameState.biddingPlayerIndex = (this.gameState.dealerIndex + 1) % 4;
-    this.gameState.currentPlayerIndex = (this.gameState.dealerIndex + 1) % 4;
+    this.gameState.biddingPlayerIndex = (this.gameState.dealerIndex + 1) % playerCount;
+    this.gameState.currentPlayerIndex = (this.gameState.dealerIndex + 1) % playerCount;
     this.gameState.highestBid = 0;
     this.gameState.winningBidder = null;
     this.gameState.message = `${this.gameState.players[this.gameState.currentPlayerIndex].name}'s turn to bid`;
@@ -236,7 +251,7 @@ class GameRoom {
       this.gameState.currentPlayerIndex = newWinningBidder;
       this.gameState.message = `${this.gameState.players[newWinningBidder].name} won the bid with ${newHighestBid}! Choose trump suit and ranking.`;
     } else {
-      const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % 4;
+      const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.maxPlayers;
       this.gameState.currentPlayerIndex = nextPlayerIndex;
       this.gameState.message = `${this.gameState.players[nextPlayerIndex].name}'s turn to bid`;
     }
@@ -252,7 +267,7 @@ class GameRoom {
     this.gameState.trumpSuit = suit;
     this.gameState.rankingOrder = order;
     this.gameState.phase = 'mulligan';
-    this.gameState.currentPlayerIndex = (this.gameState.dealerIndex + 1) % 4;
+    this.gameState.currentPlayerIndex = (this.gameState.dealerIndex + 1) % this.maxPlayers;
     this.gameState.message = `Trump: ${suit || 'No Trump'}, ${order} ranking. Mulligan phase: select cards to discard.`;
 
     this.broadcast({
@@ -298,10 +313,10 @@ class GameRoom {
     this.gameState.players[playerIndex].selectedCards = [];
     this.gameState.deck = this.gameState.deck.slice(discardCount);
 
-    const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % 4;
+    const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.maxPlayers;
 
     // Check if all players have done mulligan
-    if (nextPlayerIndex === (this.gameState.dealerIndex + 1) % 4) {
+    if (nextPlayerIndex === (this.gameState.dealerIndex + 1) % this.maxPlayers) {
       // All players done, start trick-taking
       this.gameState.phase = 'playing';
       this.gameState.currentPlayerIndex = this.gameState.winningBidder;
@@ -349,11 +364,11 @@ class GameRoom {
     });
 
     // Check if trick is complete
-    if (this.gameState.currentTrick.length === 4) {
+    if (this.gameState.currentTrick.length === this.maxPlayers) {
       this.resolveTrick();
     } else {
       // Move to next player
-      const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % 4;
+      const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.maxPlayers;
       this.gameState.currentPlayerIndex = nextPlayerIndex;
       this.gameState.message = `${this.gameState.players[nextPlayerIndex].name}'s turn`;
     }
@@ -378,16 +393,28 @@ class GameRoom {
       return;
     }
 
-    // Award trick to team
-    if (trickWinner === 0 || trickWinner === 2) {
-      this.gameState.tricksWon.team1++;
+    // Award trick to appropriate scoring entity
+    if (this.gameMode === '2-player') {
+      if (trickWinner === 0) {
+        this.gameState.tricksWon.player1++;
+      } else {
+        this.gameState.tricksWon.player2++;
+      }
     } else {
-      this.gameState.tricksWon.team2++;
+      // 4-player team mode
+      if (trickWinner === 0 || trickWinner === 2) {
+        this.gameState.tricksWon.team1++;
+      } else {
+        this.gameState.tricksWon.team2++;
+      }
     }
 
     // Check if round is over
-    const totalTricks = this.gameState.tricksWon.team1 + this.gameState.tricksWon.team2;
-    if (totalTricks === 7) {
+    const totalTricks = this.gameMode === '2-player' 
+      ? this.gameState.tricksWon.player1 + this.gameState.tricksWon.player2
+      : this.gameState.tricksWon.team1 + this.gameState.tricksWon.team2;
+    const maxTricks = this.gameMode === '2-player' ? 9 : 7;
+    if (totalTricks === maxTricks) {
       this.resolveRound();
     } else {
       // Continue with next trick
@@ -399,35 +426,70 @@ class GameRoom {
 
   resolveRound() {
     // Round over, calculate scores
-    const biddingTeam = this.gameState.winningBidder === 0 || this.gameState.winningBidder === 2 ? 'team1' : 'team2';
     const bidAmount = this.gameState.highestBid;
 
-    if (this.gameState.tricksWon[biddingTeam] >= bidAmount) {
-      // Bid made
-      this.gameState.scores[biddingTeam] += this.gameState.tricksWon[biddingTeam];
-      this.gameState.scores[biddingTeam === 'team1' ? 'team2' : 'team1'] += this.gameState.tricksWon[biddingTeam === 'team1' ? 'team2' : 'team1'];
-    } else {
-      // Bid failed
-      this.gameState.scores[biddingTeam] -= bidAmount;
-      this.gameState.scores[biddingTeam === 'team1' ? 'team2' : 'team1'] += this.gameState.tricksWon[biddingTeam === 'team1' ? 'team2' : 'team1'];
-    }
+    if (this.gameMode === '2-player') {
+      const biddingPlayer = this.gameState.winningBidder === 0 ? 'player1' : 'player2';
+      const otherPlayer = biddingPlayer === 'player1' ? 'player2' : 'player1';
 
-    // Check for game end
-    let targetScore = 21;
-    if (this.gameState.scores.team1 > 21 && this.gameState.scores.team2 > 21) {
-      targetScore = 31 + (Math.floor(Math.max(this.gameState.scores.team1, this.gameState.scores.team2) / 10) * 10) - 21;
-    }
+      if (this.gameState.tricksWon[biddingPlayer] >= bidAmount) {
+        // Bid made
+        this.gameState.scores[biddingPlayer] += this.gameState.tricksWon[biddingPlayer];
+        this.gameState.scores[otherPlayer] += this.gameState.tricksWon[otherPlayer];
+      } else {
+        // Bid failed
+        this.gameState.scores[biddingPlayer] -= bidAmount;
+        this.gameState.scores[otherPlayer] += this.gameState.tricksWon[otherPlayer];
+      }
 
-    if (this.gameState.scores.team1 >= targetScore || this.gameState.scores.team2 >= targetScore) {
-      const winner = this.gameState.scores.team1 >= targetScore ? 'Team 1' : 'Team 2';
-      this.gameState.phase = 'game_end';
-      this.gameState.message = `${winner} wins the game! Final score: Team 1: ${this.gameState.scores.team1}, Team 2: ${this.gameState.scores.team2}`;
+      // Check for game end
+      let targetScore = 21;
+      if (this.gameState.scores.player1 > 21 && this.gameState.scores.player2 > 21) {
+        targetScore = 31 + (Math.floor(Math.max(this.gameState.scores.player1, this.gameState.scores.player2) / 10) * 10) - 21;
+      }
+
+      if (this.gameState.scores.player1 >= targetScore || this.gameState.scores.player2 >= targetScore) {
+        const winner = this.gameState.scores.player1 >= targetScore ? 'Player 1' : 'Player 2';
+        this.gameState.phase = 'game_end';
+        this.gameState.message = `${winner} wins the game! Final score: Player 1: ${this.gameState.scores.player1}, Player 2: ${this.gameState.scores.player2}`;
+      } else {
+        // Start new round
+        this.gameState.phase = 'round_end';
+        this.gameState.dealerIndex = (this.gameState.dealerIndex + 1) % this.maxPlayers;
+        this.gameState.currentRound++;
+        this.gameState.message = `Round ${this.gameState.currentRound - 1} complete! Score: Player 1: ${this.gameState.scores.player1}, Player 2: ${this.gameState.scores.player2}. Click to start next round.`;
+      }
     } else {
-      // Start new round
-      this.gameState.phase = 'round_end';
-      this.gameState.dealerIndex = (this.gameState.dealerIndex + 1) % 4;
-      this.gameState.currentRound++;
-      this.gameState.message = `Round ${this.gameState.currentRound - 1} complete! Score: Team 1: ${this.gameState.scores.team1}, Team 2: ${this.gameState.scores.team2}. Click to start next round.`;
+      // 4-player team mode
+      const biddingTeam = this.gameState.winningBidder === 0 || this.gameState.winningBidder === 2 ? 'team1' : 'team2';
+
+      if (this.gameState.tricksWon[biddingTeam] >= bidAmount) {
+        // Bid made
+        this.gameState.scores[biddingTeam] += this.gameState.tricksWon[biddingTeam];
+        this.gameState.scores[biddingTeam === 'team1' ? 'team2' : 'team1'] += this.gameState.tricksWon[biddingTeam === 'team1' ? 'team2' : 'team1'];
+      } else {
+        // Bid failed
+        this.gameState.scores[biddingTeam] -= bidAmount;
+        this.gameState.scores[biddingTeam === 'team1' ? 'team2' : 'team1'] += this.gameState.tricksWon[biddingTeam === 'team1' ? 'team2' : 'team1'];
+      }
+
+      // Check for game end
+      let targetScore = 21;
+      if (this.gameState.scores.team1 > 21 && this.gameState.scores.team2 > 21) {
+        targetScore = 31 + (Math.floor(Math.max(this.gameState.scores.team1, this.gameState.scores.team2) / 10) * 10) - 21;
+      }
+
+      if (this.gameState.scores.team1 >= targetScore || this.gameState.scores.team2 >= targetScore) {
+        const winner = this.gameState.scores.team1 >= targetScore ? 'Team 1' : 'Team 2';
+        this.gameState.phase = 'game_end';
+        this.gameState.message = `${winner} wins the game! Final score: Team 1: ${this.gameState.scores.team1}, Team 2: ${this.gameState.scores.team2}`;
+      } else {
+        // Start new round
+        this.gameState.phase = 'round_end';
+        this.gameState.dealerIndex = (this.gameState.dealerIndex + 1) % this.maxPlayers;
+        this.gameState.currentRound++;
+        this.gameState.message = `Round ${this.gameState.currentRound - 1} complete! Score: Team 1: ${this.gameState.scores.team1}, Team 2: ${this.gameState.scores.team2}. Click to start next round.`;
+      }
     }
   }
 
@@ -469,12 +531,14 @@ class GameRoom {
 
   areAllCardsOdd(trick) {
     const ODD_CARDS = ['3', '5', '7', '9', 'J', 'K', 'A'];
-    return trick.every(t => ODD_CARDS.includes(t.card.value));
+    const oddCardsInTrick = trick.filter(t => ODD_CARDS.includes(t.card.value));
+    const requiredOddCount = this.gameMode === '2-player' ? 2 : 4;
+    return oddCardsInTrick.length === requiredOddCount;
   }
 
   handleStartNextRound() {
     this.gameState.phase = 'setup';
-    this.gameState.tricksWon = { team1: 0, team2: 0 };
+    this.gameState.tricksWon = this.gameMode === '2-player' ? { player1: 0, player2: 0 } : { team1: 0, team2: 0 };
     this.gameState.currentTrick = [];
     this.gameState.message = 'Click "Start Game" to begin the next round';
 
@@ -486,14 +550,19 @@ class GameRoom {
   }
 
   handleStartNewGame() {
+    const isTeamGame = this.gameMode === '4-player';
+    const playerCount = this.maxPlayers;
+    
+    // Initialize players array based on game mode
+    const players = [];
+    for (let i = 0; i < playerCount; i++) {
+      players.push({ name: `Player ${i + 1}`, cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] });
+    }
+
     this.gameState = {
       phase: 'setup',
-      players: [
-        { name: 'Player 1', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 2', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 3', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] },
-        { name: 'Player 4', cards: [], isCurrentPlayer: false, bid: null, selectedCards: [] }
-      ],
+      gameMode: this.gameMode,
+      players: players,
       currentPlayerIndex: 0,
       dealerIndex: 0,
       biddingPlayerIndex: 1,
@@ -503,8 +572,8 @@ class GameRoom {
       rankingOrder: 'high',
       currentTrick: [],
       trickWinner: null,
-      tricksWon: { team1: 0, team2: 0 },
-      scores: { team1: 0, team2: 0 },
+      tricksWon: isTeamGame ? { team1: 0, team2: 0 } : { player1: 0, player2: 0 },
+      scores: isTeamGame ? { team1: 0, team2: 0 } : { player1: 0, player2: 0 },
       currentRound: 1,
       deck: [],
       gameStarted: false,
@@ -533,7 +602,7 @@ wss.on('connection', (ws) => {
       
       switch (data.type) {
         case 'joinRoom':
-          handleJoinRoom(ws, data.roomId, data.playerIndex);
+          handleJoinRoom(ws, data.roomId, data.playerIndex, data.gameMode);
           break;
         case 'playerAction':
           handlePlayerAction(ws, data.action);
@@ -555,16 +624,16 @@ wss.on('connection', (ws) => {
   });
 });
 
-function handleJoinRoom(ws, roomId, playerIndex) {
+function handleJoinRoom(ws, roomId, playerIndex, gameMode = '4-player') {
   // Get or create room
   if (!rooms.has(roomId)) {
-    rooms.set(roomId, new GameRoom(roomId));
+    rooms.set(roomId, new GameRoom(roomId, gameMode));
   }
   
   const room = rooms.get(roomId);
   
   // Validate player index
-  if (playerIndex < 0 || playerIndex >= 4) {
+  if (playerIndex < 0 || playerIndex >= room.maxPlayers) {
     ws.send(JSON.stringify({ type: 'error', message: 'Invalid player index' }));
     return;
   }

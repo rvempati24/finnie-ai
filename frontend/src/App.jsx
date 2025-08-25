@@ -70,7 +70,7 @@ const BiddingPanel = ({ gameState, playerIndex, onBid }) => {
       {isYourTurn && (
         <div className="bid-buttons">
           <button onClick={() => onBid(0)}>Pass</button>
-          {[1, 2, 3, 4, 5, 6, 7].map(bid => (
+          {Array.from({ length: gameState.gameMode === '2-player' ? 9 : 7 }, (_, i) => i + 1).map(bid => (
             <button 
               key={bid} 
               onClick={() => onBid(bid)}
@@ -188,12 +188,19 @@ const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection }) => {
   // Calculate player positions from current player's perspective
   // Current player is always at bottom, others arranged clockwise
   const getPlayerPosition = (actualPlayerIndex) => {
-    const positions = ['bottom', 'left', 'top', 'right']
-    const offset = (actualPlayerIndex - playerIndex + 4) % 4
-    return positions[offset]
+    if (gameState.gameMode === '2-player') {
+      return actualPlayerIndex === playerIndex ? 'bottom' : 'top'
+    } else {
+      const positions = ['bottom', 'left', 'top', 'right']
+      const offset = (actualPlayerIndex - playerIndex + 4) % 4
+      return positions[offset]
+    }
   }
 
   const getTeammateStatus = (actualPlayerIndex) => {
+    if (gameState.gameMode === '2-player') {
+      return false // No teammates in 2-player mode
+    }
     // Team assignments: players 0&2 vs players 1&3
     const currentPlayerTeam = playerIndex % 2
     const otherPlayerTeam = actualPlayerIndex % 2
@@ -205,8 +212,17 @@ const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection }) => {
       {/* Game info moved to top-left corner */}
       <div className="game-info">
         <p>Round {gameState.currentRound}</p>
-        <p>Team 1: {gameState.scores.team1} | Team 2: {gameState.scores.team2}</p>
-        <p>Tricks: {gameState.tricksWon.team1}-{gameState.tricksWon.team2}</p>
+        {gameState.gameMode === '2-player' ? (
+          <>
+            <p>Player 1: {gameState.scores.player1} | Player 2: {gameState.scores.player2}</p>
+            <p>Tricks: {gameState.tricksWon.player1}-{gameState.tricksWon.player2}</p>
+          </>
+        ) : (
+          <>
+            <p>Team 1: {gameState.scores.team1} | Team 2: {gameState.scores.team2}</p>
+            <p>Tricks: {gameState.tricksWon.team1}-{gameState.tricksWon.team2}</p>
+          </>
+        )}
         {gameState.trumpSuit && (
           <p>Trump: {gameState.trumpSuit} ({gameState.rankingOrder})</p>
         )}
@@ -257,13 +273,15 @@ const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection }) => {
 function App() {
   const [roomId, setRoomId] = useState(null);
   const [playerIndex, setPlayerIndex] = useState(null);
+  const [gameMode, setGameMode] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
   
-  const { isConnected, gameState, connectedPlayers, error, sendAction } = useWebSocket(roomId, playerIndex);
+  const { isConnected, gameState, connectedPlayers, error, sendAction } = useWebSocket(roomId, playerIndex, gameMode);
 
-  const handleJoinRoom = (newRoomId, newPlayerIndex) => {
+  const handleJoinRoom = (newRoomId, newPlayerIndex, newGameMode) => {
     setRoomId(newRoomId);
     setPlayerIndex(newPlayerIndex);
+    setGameMode(newGameMode);
     setConnectionError(null);
   };
 
@@ -310,6 +328,7 @@ function App() {
   const handleDisconnect = () => {
     setRoomId(null);
     setPlayerIndex(null);
+    setGameMode(null);
     setConnectionError(null);
   };
 
@@ -380,7 +399,7 @@ function App() {
       <header className="app-header">
         <h1>Finnie AI Card Game - Multiplayer</h1>
         <div style={{ fontSize: '0.9rem', opacity: 0.8, marginBottom: '1rem' }}>
-          Room: {roomId} | You are Player {playerIndex + 1} | Connected: {connectedPlayers.length}/4
+          Room: {roomId} | You are Player {playerIndex + 1} | Connected: {connectedPlayers.length}/{gameState?.gameMode === '2-player' ? 2 : 4} | Mode: {gameState?.gameMode || gameMode}
           <button 
             onClick={handleDisconnect}
             style={{
@@ -398,7 +417,7 @@ function App() {
           </button>
         </div>
         
-        {gameState.phase === GAME_PHASES.SETUP && connectedPlayers.length === 4 && (
+        {gameState.phase === GAME_PHASES.SETUP && connectedPlayers.length === (gameState.gameMode === '2-player' ? 2 : 4) && (
           <button className="start-button" onClick={handleStartGame}>
             {gameState.currentRound === 1 ? 'Start New Game' : 'Deal Cards'}
           </button>
@@ -457,9 +476,9 @@ function App() {
         {gameState.phase === GAME_PHASES.WAITING ? (
           <div className="welcome-screen">
             <h2>Waiting for Players</h2>
-            <p>Connected Players: {connectedPlayers.length}/4</p>
+            <p>Connected Players: {connectedPlayers.length}/{gameState.gameMode === '2-player' ? 2 : 4}</p>
             <div style={{ margin: '1rem 0' }}>
-              {[0, 1, 2, 3].map(index => (
+              {Array.from({ length: gameState.gameMode === '2-player' ? 2 : 4 }, (_, index) => (
                 <div 
                   key={index} 
                   style={{
@@ -476,7 +495,7 @@ function App() {
               ))}
             </div>
             <p>Share room ID <strong>{roomId}</strong> with other players</p>
-            <p>Game will start automatically when all 4 players join</p>
+            <p>Game will start automatically when all {gameState.gameMode === '2-player' ? 2 : 4} players join</p>
           </div>
         ) : gameState.gameStarted || gameState.phase !== GAME_PHASES.SETUP ? (
           <GameTable 
