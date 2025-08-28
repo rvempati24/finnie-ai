@@ -2,10 +2,10 @@
   "name": "finnie-ai-backend",
   "version": "1.0.0",
   "type": "module",
-  "main": "frontend/server.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node frontend/server.js",
-    "dev": "node frontend/server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
