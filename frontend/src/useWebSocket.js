@@ -15,7 +15,10 @@ export const useWebSocket = (roomId, playerIndex, gameMode) => {
 
     const connect = () => {
       try {
-        const ws = new WebSocket('ws://localhost:8080');
+        const wsUrl = process.env.NODE_ENV === 'production' 
+          ? 'wss://finnie-ai-production.up.railway.app'
+          : 'ws://localhost:8080';
+        const ws = new WebSocket(wsUrl);
         
         ws.onopen = () => {
           console.log('Connected to WebSocket server');
