@@ -154,6 +154,32 @@ const TrumpSelectionPanel = ({ gameState, playerIndex, onTrumpSelection }) => {
   )
 }
 
+// Trick Complete component
+const TrickCompletePanel = ({ gameState, onNextTrick }) => {
+  if (gameState.phase !== GAME_PHASES.TRICK_COMPLETE) return null
+
+  return (
+    <div className="trick-complete-panel" style={{
+      background: 'rgba(0, 255, 0, 0.2)',
+      padding: '1rem',
+      borderRadius: '10px',
+      textAlign: 'center',
+      marginBottom: '1rem',
+      border: '2px solid #00ff00'
+    }}>
+      <h3>Trick Complete!</h3>
+      <p>All cards have been played. Review the trick and click to continue.</p>
+      <button 
+        className="start-button" 
+        onClick={onNextTrick}
+        style={{ marginTop: '1rem' }}
+      >
+        Next Trick
+      </button>
+    </div>
+  )
+}
+
 // Mulligan component
 const MulliganPanel = ({ gameState, playerIndex, onConfirmMulligan }) => {
   if (gameState.phase !== GAME_PHASES.MULLIGAN) return null
@@ -495,11 +521,6 @@ function App() {
             Start Next Round
           </button>
         )}
-        {gameState.phase === GAME_PHASES.TRICK_COMPLETE && (
-          <button className="start-button" onClick={handleNextTrick}>
-            Next Trick
-          </button>
-        )}
         {gameState.phase === GAME_PHASES.GAME_END && (
           <button className="start-button" onClick={startNewGame}>
             Start New Game
@@ -528,6 +549,11 @@ function App() {
           </div>
         )}
         
+        {/* Debug info */}
+        <div style={{ fontSize: '0.8rem', opacity: 0.7, marginBottom: '1rem' }}>
+          Current phase: {gameState.phase} | Trick cards: {gameState.currentTrick?.length || 0}
+        </div>
+        
         <BiddingPanel 
           gameState={gameState}
           playerIndex={playerIndex}
@@ -544,6 +570,11 @@ function App() {
           gameState={gameState}
           playerIndex={playerIndex}
           onConfirmMulligan={confirmMulligan}
+        />
+        
+        <TrickCompletePanel
+          gameState={gameState}
+          onNextTrick={handleNextTrick}
         />
         
         {gameState.phase === GAME_PHASES.WAITING ? (
