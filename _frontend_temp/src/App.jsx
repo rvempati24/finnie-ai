@@ -24,7 +24,18 @@ const LOW_ORDER = ['K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2']
 const ODD_CARDS = ['3', '5', '7', '9', 'J', 'K', 'A']
 
 // Card component
-const Card = ({ card, isVisible = true, isPlayable = false, onClick, isSelected = false }) => {
+const Card = ({ 
+  card, 
+  isVisible = true, 
+  isPlayable = false, 
+  onClick, 
+  isSelected = false, 
+  isDraggable = false, 
+  onDragStart, 
+  onDragOver, 
+  onDrop, 
+  cardIndex 
+}) => {
   if (!isVisible) {
     return (
       <div className="card card-back" onClick={onClick}>
@@ -37,10 +48,36 @@ const Card = ({ card, isVisible = true, isPlayable = false, onClick, isSelected 
 
   const isRedSuit = card.suit === '♥' || card.suit === '♦'
 
+  const handleDragStart = (e) => {
+    if (onDragStart) {
+      e.dataTransfer.setData('text/plain', cardIndex.toString());
+      onDragStart(e, cardIndex);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    if (onDragOver) {
+      e.preventDefault();
+      onDragOver(e, cardIndex);
+    }
+  };
+
+  const handleDrop = (e) => {
+    if (onDrop) {
+      e.preventDefault();
+      const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+      onDrop(draggedIndex, cardIndex);
+    }
+  };
+
   return (
     <div 
-      className={`card ${isPlayable ? 'playable' : ''} ${isSelected ? 'selected' : ''}`} 
+      className={`card ${isPlayable ? 'playable' : ''} ${isSelected ? 'selected' : ''} ${isDraggable ? 'draggable' : ''}`} 
       onClick={isPlayable ? onClick : undefined}
+      draggable={isDraggable}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
     >
       <div className="card-inner">
         <div className={`card-value ${isRedSuit ? 'red' : ''}`}>{card.value}</div>
@@ -139,10 +176,26 @@ const MulliganPanel = ({ gameState, playerIndex, onConfirmMulligan }) => {
 }
 
 // Player component
-const Player = ({ player, isCurrentPlayer, isTeammate, cards, onCardClick, gameState, playerIndex, currentPlayerIndex }) => {
+const Player = ({ player, isCurrentPlayer, isTeammate, cards, onCardClick, onCardReorder, gameState, playerIndex, currentPlayerIndex }) => {
   const isYourCards = playerIndex === currentPlayerIndex
   const canPlay = gameState.phase === GAME_PHASES.PLAYING && isCurrentPlayer
   const canSelect = gameState.phase === GAME_PHASES.MULLIGAN && isCurrentPlayer
+  const canReorder = isYourCards && (gameState.phase === GAME_PHASES.PLAYING || gameState.phase === GAME_PHASES.BIDDING || gameState.phase === GAME_PHASES.MULLIGAN)
+
+  const handleDragStart = (e, cardIndex) => {
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, cardIndex) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (draggedIndex, dropIndex) => {
+    if (draggedIndex !== dropIndex && onCardReorder) {
+      onCardReorder(draggedIndex, dropIndex);
+    }
+  };
 
   return (
     <div className={`player ${isCurrentPlayer ? 'current' : ''} ${isTeammate ? 'teammate' : ''}`}>
@@ -162,10 +215,15 @@ const Player = ({ player, isCurrentPlayer, isTeammate, cards, onCardClick, gameS
           <Card
             key={index}
             card={card}
+            cardIndex={index}
             isVisible={isYourCards}
             isPlayable={canPlay || canSelect}
             isSelected={canSelect && player.selectedCards?.includes(index)}
+            isDraggable={canReorder}
             onClick={() => onCardClick(index)}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           />
         ))}
       </div>
@@ -174,7 +232,7 @@ const Player = ({ player, isCurrentPlayer, isTeammate, cards, onCardClick, gameS
 }
 
 // Game table component
-const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection }) => {
+const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection, onCardReorder }) => {
   const { players, currentPlayerIndex, currentTrick } = gameState
 
   const handleCardClick = (cardIndex) => {
@@ -258,6 +316,7 @@ const GameTable = ({ gameState, playerIndex, onCardPlay, onCardSelection }) => {
                 isTeammate={isTeammate}
                 cards={player?.cards || []}
                 onCardClick={handleCardClick}
+                onCardReorder={onCardReorder}
                 gameState={gameState}
                 playerIndex={actualPlayerIndex}
                 currentPlayerIndex={playerIndex}
@@ -315,6 +374,10 @@ function App() {
 
   const handleCardPlay = (cardIndex) => {
     sendAction({ type: 'playCard', cardIndex });
+  };
+
+  const handleCardReorder = (fromIndex, toIndex) => {
+    sendAction({ type: 'reorderCards', fromIndex, toIndex });
   };
 
   const startNextRound = () => {
@@ -503,6 +566,7 @@ function App() {
             playerIndex={playerIndex}
             onCardPlay={handleCardPlay}
             onCardSelection={handleCardSelection}
+            onCardReorder={handleCardReorder}
           />
         ) : (
           <div className="welcome-screen">

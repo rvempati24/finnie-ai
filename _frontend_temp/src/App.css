@@ -469,6 +469,15 @@ body {
   border: 2px solid #ddd;
 }
 
+.card.draggable {
+  cursor: grab;
+}
+
+.card.draggable:active {
+  cursor: grabbing;
+  transform: rotate(5deg);
+}
+
 .card:hover {
   transform: translateY(-5px);
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);

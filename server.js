@@ -159,6 +159,9 @@ class GameRoom {
       case 'startNewGame':
         this.handleStartNewGame();
         break;
+      case 'reorderCards':
+        this.handleCardReorder(playerIndex, action.fromIndex, action.toIndex);
+        break;
     }
   }
 
@@ -580,6 +583,48 @@ class GameRoom {
       message: 'All players connected! Ready to start game.'
     };
 
+    this.broadcast({
+      type: 'gameState',
+      gameState: this.gameState,
+      connectedPlayers: Array.from(this.players.keys())
+    });
+  }
+
+  handleCardReorder(playerIndex, fromIndex, toIndex) {
+    const player = this.gameState.players[playerIndex];
+    if (!player || !player.cards) return;
+
+    // Validate indices
+    if (fromIndex < 0 || fromIndex >= player.cards.length || 
+        toIndex < 0 || toIndex >= player.cards.length || 
+        fromIndex === toIndex) {
+      return;
+    }
+
+    // Reorder the cards
+    const cards = [...player.cards];
+    const [movedCard] = cards.splice(fromIndex, 1);
+    cards.splice(toIndex, 0, movedCard);
+    
+    // Update player's cards
+    this.gameState.players[playerIndex].cards = cards;
+    
+    // Also update selected cards indices during mulligan phase
+    if (this.gameState.phase === 'mulligan' && player.selectedCards && player.selectedCards.length > 0) {
+      const updatedSelectedCards = player.selectedCards.map(selectedIndex => {
+        if (selectedIndex === fromIndex) {
+          return toIndex;
+        } else if (selectedIndex > fromIndex && selectedIndex <= toIndex) {
+          return selectedIndex - 1;
+        } else if (selectedIndex < fromIndex && selectedIndex >= toIndex) {
+          return selectedIndex + 1;
+        }
+        return selectedIndex;
+      });
+      this.gameState.players[playerIndex].selectedCards = updatedSelectedCards;
+    }
+
+    // Broadcast the updated game state
     this.broadcast({
       type: 'gameState',
       gameState: this.gameState,
