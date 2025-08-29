@@ -22,7 +22,7 @@ class GameRoom {
     }
     
     this.gameState = {
-      phase: 'waiting', // waiting, setup, dealing, bidding, trump_selection, mulligan, playing, round_end, game_end
+      phase: 'waiting', // waiting, setup, dealing, bidding, trump_selection, mulligan, playing, trick_complete, round_end, game_end
       gameMode: gameMode,
       players: players,
       currentPlayerIndex: 0,
@@ -161,6 +161,9 @@ class GameRoom {
         break;
       case 'reorderCards':
         this.handleCardReorder(playerIndex, action.fromIndex, action.toIndex);
+        break;
+      case 'nextTrick':
+        this.handleNextTrick();
         break;
     }
   }
@@ -368,7 +371,9 @@ class GameRoom {
 
     // Check if trick is complete
     if (this.gameState.currentTrick.length === this.maxPlayers) {
-      this.resolveTrick();
+      // Set trick complete phase to show all cards before resolving
+      this.gameState.phase = 'trick_complete';
+      this.gameState.message = 'Trick complete! Click "Next Trick" to continue.';
     } else {
       // Move to next player
       const nextPlayerIndex = (this.gameState.currentPlayerIndex + 1) % this.maxPlayers;
@@ -383,6 +388,12 @@ class GameRoom {
     });
   }
 
+  handleNextTrick() {
+    if (this.gameState.phase === 'trick_complete') {
+      this.resolveTrick();
+    }
+  }
+
   resolveTrick() {
     // Determine winner
     let trickWinner = this.getTrickWinner(this.gameState.currentTrick);
@@ -392,7 +403,13 @@ class GameRoom {
       // Trick is discarded, but winner still leads next
       this.gameState.currentTrick = [];
       this.gameState.currentPlayerIndex = trickWinner;
+      this.gameState.phase = 'playing';
       this.gameState.message = `All odd cards! Trick discarded. ${this.gameState.players[trickWinner].name} leads next.`;
+      this.broadcast({
+        type: 'gameState',
+        gameState: this.gameState,
+        connectedPlayers: Array.from(this.players.keys())
+      });
       return;
     }
 
@@ -423,8 +440,15 @@ class GameRoom {
       // Continue with next trick
       this.gameState.currentTrick = [];
       this.gameState.currentPlayerIndex = trickWinner;
+      this.gameState.phase = 'playing';
       this.gameState.message = `${this.gameState.players[trickWinner].name} wins the trick and leads next`;
     }
+
+    this.broadcast({
+      type: 'gameState',
+      gameState: this.gameState,
+      connectedPlayers: Array.from(this.players.keys())
+    });
   }
 
   resolveRound() {
@@ -523,7 +547,7 @@ class GameRoom {
 
   getCardRank(card) {
     const HIGH_ORDER = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
-    const LOW_ORDER = ['K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2'];
+    const LOW_ORDER = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
     const order = this.gameState.rankingOrder === 'high' ? HIGH_ORDER : LOW_ORDER;
     return order.indexOf(card.value);
   }

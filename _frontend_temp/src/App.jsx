@@ -12,13 +12,14 @@ const GAME_PHASES = {
   TRUMP_SELECTION: 'trump_selection',
   MULLIGAN: 'mulligan',
   PLAYING: 'playing',
+  TRICK_COMPLETE: 'trick_complete',
   ROUND_END: 'round_end',
   GAME_END: 'game_end'
 }
 
 // Card ranking orders
 const HIGH_ORDER = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-const LOW_ORDER = ['K', 'Q', 'J', '10', '9', '8', '7', '6', '5', '4', '3', '2']
+const LOW_ORDER = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']
 
 // Odd cards for special rule
 const ODD_CARDS = ['3', '5', '7', '9', 'J', 'K', 'A']
@@ -380,6 +381,10 @@ function App() {
     sendAction({ type: 'reorderCards', fromIndex, toIndex });
   };
 
+  const handleNextTrick = () => {
+    sendAction({ type: 'nextTrick' });
+  };
+
   const startNextRound = () => {
     sendAction({ type: 'startNextRound' });
   };
@@ -488,6 +493,11 @@ function App() {
         {gameState.phase === GAME_PHASES.ROUND_END && (
           <button className="start-button" onClick={startNextRound}>
             Start Next Round
+          </button>
+        )}
+        {gameState.phase === GAME_PHASES.TRICK_COMPLETE && (
+          <button className="start-button" onClick={handleNextTrick}>
+            Next Trick
           </button>
         )}
         {gameState.phase === GAME_PHASES.GAME_END && (
